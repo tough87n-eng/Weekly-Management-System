@@ -117,7 +117,7 @@ function App() {
   const fetchClasses = async () => {
     try {
       const res = await axios.get(`${API_BASE_URL}/classes`);
-      setClasses(res.data);
+      setClasses(res.data.filter((c: any) => c.grade <= 2));
     } catch (err) {}
   };
 

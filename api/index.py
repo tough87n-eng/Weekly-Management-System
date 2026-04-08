@@ -107,7 +107,9 @@ async def upload_excel(file: UploadFile = File(...), db: Session = Depends(get_d
             try:
                 name_orig, g_val = safe_str(row.iloc[6]), str(row.iloc[3])
                 if not name_orig: continue
-                grade, cls, num = int(float(g_val)), int(float(str(row.iloc[4]))), int(float(str(row.iloc[5])))
+                grade = int(float(g_val))
+                if grade > 2: continue # 1, 2학년만 허용
+                cls, num = int(float(str(row.iloc[4]))), int(float(str(row.iloc[5])))
                 key = (grade, cls, normalize(name_orig))
                 
                 if key not in processed_students:
