@@ -75,7 +75,6 @@ async def upload_excel(file: UploadFile = File(...), db: Session = Depends(get_d
         with open(file_path, "wb") as f: f.write(contents)
         xl = pd.ExcelFile(file_path)
         
-        # 0. 기존 데이터 삭제 (속도 향상을 위해 한 번에 처리)
         db.query(models.CustomizedEnrollment).delete()
         db.query(models.AfterSchoolEnrollment).delete()
         db.query(models.CareRoomEnrollment).delete()
@@ -91,9 +90,8 @@ async def upload_excel(file: UploadFile = File(...), db: Session = Depends(get_d
                 p, d = safe_str(row.iloc[1]), safe_str(row.iloc[2])
                 if p: subj_days_map[normalize(p)] = d
 
-        # 2. 학생 및 수강 정보 수집 (메모리에 모았다가 한 번에 저장)
+        # 2. 메인 학생 정보 파싱
         main_df = pd.read_excel(xl, sheet_name=xl.sheet_names[0])
-        student_objs = []
         after_school_objs = []
         processed_students = {}
         processed_instructors = {}
@@ -115,7 +113,7 @@ async def upload_excel(file: UploadFile = File(...), db: Session = Depends(get_d
                 if key not in processed_students:
                     student = models.Student(grade=grade, class_name=cls, student_number=num, name=name_orig, guardian_contact=safe_str(row.iloc[7]))
                     db.add(student)
-                    db.flush() # ID 생성을 위해 일시 플러시
+                    db.flush()
                     processed_students[key] = student.id
                 
                 if s_raw:
@@ -128,7 +126,7 @@ async def upload_excel(file: UploadFile = File(...), db: Session = Depends(get_d
         db.add_all(after_school_objs)
         db.add_all(list(processed_instructors.values()))
 
-        # 3. 맞춤형 처리
+        # 3. 맞춤형 시트 처리
         c_sheet = [s for s in xl.sheet_names if "맞춤" in s]
         if c_sheet:
             c_df = pd.read_excel(xl, sheet_name=c_sheet[0])
@@ -138,6 +136,20 @@ async def upload_excel(file: UploadFile = File(...), db: Session = Depends(get_d
                     sid = processed_students.get((g, c, n))
                     if sid:
                         db.add(models.CustomizedEnrollment(student_id=sid, program_name=safe_str(row.iloc[3]), mon=safe_str(row.iloc[4]), tue=safe_str(row.iloc[5]), wed=safe_str(row.iloc[6]), thu=safe_str(row.iloc[7]), fri=safe_str(row.iloc[8])))
+                except: continue
+
+        # 4. 돌봄교실 시트 처리 (복구됨!)
+        r_sheet = [s for s in xl.sheet_names if "돌봄" in s]
+        if r_sheet:
+            r_df = pd.read_excel(xl, sheet_name=r_sheet[0])
+            for _, row in r_df.iterrows():
+                try:
+                    if len(row) < 4: continue
+                    g, c, n = int(float(str(row.iloc[0]))), int(float(str(row.iloc[1]))), normalize(safe_str(row.iloc[2]))
+                    room = safe_str(row.iloc[3])
+                    sid = processed_students.get((g, c, n))
+                    if sid:
+                        db.add(models.CareRoomEnrollment(student_id=sid, room_name=room))
                 except: continue
 
         db.commit()
@@ -179,4 +191,4 @@ async def get_instructors(db: Session = Depends(get_db)):
 
 @app.get("/api/version")
 async def get_version():
-    return {"version": "2.2.6 - Optimization"}
+    return {"version": "2.2.7 - CareRoom Fixed"}
