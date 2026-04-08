@@ -338,8 +338,8 @@ function App() {
                             <td key={dk} className="p-2 align-middle border-r w-1/6">
                               <div className="flex flex-col items-center space-y-1 justify-center min-h-[80px]">
                                 {getDaySchedule(s, dk, ['월','화','수','목','금'][i]).map((it, idx) => (
-                                  <div key={idx} className={`w-full max-w-[140px] p-2 rounded-lg text-[9px] font-black leading-tight shadow-sm border-l-4 text-center flex items-center justify-center ${it.type==='custom'?'bg-violet-50 text-violet-700 border-violet-500':'bg-emerald-50 text-emerald-700 border-emerald-500'}`}>
-                                    {it.type === 'custom' ? <Sparkles size={8} className="mr-1 flex-shrink-0" /> : <BookOpen size={8} className="mr-1 flex-shrink-0" />}
+                                  <div key={idx} className={`w-full max-w-[160px] p-2.5 rounded-xl text-sm font-black leading-tight shadow-sm border-l-4 text-center flex items-center justify-center mb-1.5 ${it.type==='custom'?'bg-violet-50 text-violet-700 border-violet-500':'bg-emerald-50 text-emerald-700 border-emerald-500'}`}>
+                                    {it.type === 'custom' ? <Sparkles size={12} className="mr-1.5 flex-shrink-0" /> : <BookOpen size={12} className="mr-1.5 flex-shrink-0" />}
                                     {it.label}
                                   </div>
                                 ))}
