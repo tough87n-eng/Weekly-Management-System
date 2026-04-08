@@ -38,7 +38,7 @@ app.add_middleware(
 )
 
 ADMIN_PASSWORD = "1234"
-VIEWER_PASSWORD = "1234"
+VIEWER_PASSWORD = "thdtks1234"
 
 class LoginReq(BaseModel):
     password: str
