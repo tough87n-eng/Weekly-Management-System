@@ -1,16 +1,15 @@
 {
+  "github": {
+    "silent": true
+  },
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "/api/index.py"
+      "destination": "api/index.py"
     },
     {
       "source": "/(.*)",
-      "destination": "/frontend/dist/$1"
-    },
-    {
-      "source": "/(.*)",
-      "destination": "/frontend/dist/index.html"
+      "destination": "/$1"
     }
   ]
 }
