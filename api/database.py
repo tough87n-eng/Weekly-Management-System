@@ -2,21 +2,20 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 import os
 
-# Vercel Postgres 주소가 있으면 사용하고, 없으면 SQLite(로컬용)를 사용합니다.
-# SQLAlchemy 1.4+ 에서는 'postgres://' 대신 'postgresql://'을 명시해야 합니다.
-DATABASE_URL = os.getenv("POSTGRES_URL")
-if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
+# 사용자께서 제공해주신 Vercel Postgres(Prisma) 주소입니다.
+# 우선 환경 변수(POSTGRES_URL)를 찾고, 없으면 직접 주신 주소를 사용합니다.
+DATABASE_URL = os.getenv("POSTGRES_URL", "postgres://376db56b434833beb099889a165710e5201995fbc20a192eb0a160acec7b42ed:sk_8TTM8wqwOY-4Y6qWyHMOj@db.prisma.io:5432/postgres?sslmode=require")
+
+# SQLAlchemy 최신 버전 대응 (postgres:// -> postgresql://)
+if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
-if not DATABASE_URL:
-    DATABASE_URL = "sqlite:////tmp/school.db"
-
-# Postgres와 SQLite의 접속 옵션을 다르게 설정합니다.
-if "sqlite" in DATABASE_URL:
-    engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
-else:
-    # Postgres의 경우 안정적인 연결을 위해 추가 옵션을 사용합니다.
-    engine = create_engine(DATABASE_URL, pool_pre_ping=True)
+# 엔진 설정 (Postgres 안정성 옵션 추가)
+engine = create_engine(
+    DATABASE_URL, 
+    pool_pre_ping=True,
+    pool_recycle=3600
+)
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
