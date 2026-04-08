@@ -1,0 +1,26 @@
+# System & Recycle Bin
+$RECYCLE.BIN/
+System Volume Information/
+!$xyn/
+(사진자료) 연도별_정리/
+
+# Python (Vercel API 폴더는 포함되어야 함)
+__pycache__/
+*.pyc
+venv/
+.env
+backend/data/*.xlsx
+backend/data/*.db
+backend_log.txt
+excel_*.txt
+excel_*.json
+
+# Node / React
+frontend/node_modules/
+frontend/dist/
+frontend/dist-ssr/
+frontend/*.local
+
+# OS
+.DS_Store
+Thumbs.db
