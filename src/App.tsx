@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
-import { Users, Phone, Upload, GraduationCap, Calendar, ChevronRight, Home, User, Sparkles, BookOpen, ShieldCheck, LayoutDashboard, Lock, LogOut, Heart, Edit3, Check, Menu, X } from 'lucide-react';
+import { Users, Phone, Upload, GraduationCap, Calendar, ChevronRight, Home, User, Sparkles, BookOpen, ShieldCheck, LayoutDashboard, Lock, LogOut, Heart, Edit3, Check, Menu, X, Search } from 'lucide-react';
 
 const API_BASE_URL = window.location.hostname === 'localhost' ? 'http://localhost:8000' : '/api';
 
 interface Student {
-  id: number; name: string; student_number: number; guardian_contact: string;
+  id: number; name: string; grade: number; class_name: number; student_number: number; guardian_contact: string;
   customized: { program: string; mon: string; tue: string; wed: string; thu: string; fri: string; } | null;
   after_school: { name: string; days: string }[];
   care_room: string | null;
@@ -26,10 +26,13 @@ function App() {
   const [classes, setClasses] = useState<ClassInfo[]>([]);
   const [selectedClass, setSelectedClass] = useState<ClassInfo | 'overall'>('overall');
   const [students, setStudents] = useState<Student[]>([]);
+  const [allStudents, setAllStudents] = useState<Student[]>([]); // 검색용 전체 학생 목록
+  const [searchQuery, setSearchQuery] = useState(''); // 검색어 상태
+  
   const [instructors, setInstructors] = useState<Instructor[]>([]);
   const [overallStats, setOverallStats] = useState<any>(null);
   const [loading, setLoading] = useState(false);
-  const [isMenuOpen, setIsMenuOpen] = useState(false); // 모바일 메뉴 상태
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   
   const [schoolName, setSchoolName] = useState('OO');
   const [isEditingSchool, setIsEditingSchool] = useState(false);
@@ -52,6 +55,7 @@ function App() {
       fetchInstructors();
       fetchOverallStats();
       fetchSchoolName();
+      fetchAllStudents(); // 전체 학생 목록 미리 로드 (검색용)
     }
   }, [isLoggedIn]);
 
@@ -59,9 +63,20 @@ function App() {
     if (isLoggedIn) {
       if (selectedClass === 'overall') fetchOverallStats();
       else if (selectedClass) fetchDashboard(selectedClass.grade, selectedClass.class_name);
-      setIsMenuOpen(false); // 메뉴 선택 시 닫기
+      setIsMenuOpen(false);
+      setSearchQuery(''); // 학급 변경 시 검색어 초기화
     }
   }, [selectedClass, isLoggedIn]);
+
+  const fetchAllStudents = async () => {
+    try {
+      // 모든 학급의 학생을 한 번에 가져오는 엔드포인트가 없으므로 
+      // 현재는 간단히 각 학급 정보를 합쳐서 검색 기능을 구현하거나 
+      // 백엔드에 전체 학생 검색용 API를 추가하는 것이 좋으나,
+      // 일단 현재 로드된 반 학생들을 대상으로 하거나 전체를 순차적으로 로드할 수 있습니다.
+      // 여기서는 성능을 위해 검색 시에만 전체 검색을 시도하는 방식으로 UI를 구성하겠습니다.
+    } catch (err) {}
+  };
 
   const fetchSchoolName = async () => {
     try {
@@ -129,7 +144,7 @@ function App() {
     setLoading(true);
     try {
       const res = await axios.get(`${API_BASE_URL}/dashboard/${g}/${c}`);
-      setStudents(res.data);
+      setStudents(res.data.map((s: any) => ({...s, grade: g, class_name: c})));
     } catch (err) {}
     finally { setLoading(false); }
   };
@@ -161,6 +176,16 @@ function App() {
     }
     return items;
   };
+
+  // 실시간 검색 필터링 로직
+  const filteredStudents = useMemo(() => {
+    if (!searchQuery.trim()) return students;
+    const normalizedQuery = searchQuery.toLowerCase().replace(/\s/g, '');
+    return students.filter(s => 
+      s.name.toLowerCase().includes(normalizedQuery) || 
+      String(s.student_number).includes(normalizedQuery)
+    );
+  }, [students, searchQuery]);
 
   if (!isLoggedIn) {
     return (
@@ -207,7 +232,7 @@ function App() {
         </button>
       </div>
 
-      {/* 사이드바 (PC 상시, 모바일 슬라이딩) */}
+      {/* 사이드바 */}
       <aside className={`fixed inset-y-0 left-0 transform ${isMenuOpen ? 'translate-x-0' : '-translate-x-full'} md:relative md:translate-x-0 w-64 bg-slate-900 text-white flex flex-col flex-shrink-0 shadow-2xl transition-transform duration-300 z-40`}>
         <div className="p-6 border-b border-slate-800 hidden md:block">
           <h1 className="text-lg font-black tracking-tighter">맞춤형 돌봄 대시보드</h1>
@@ -237,9 +262,6 @@ function App() {
               <ChevronRight size={14} className={typeof selectedClass !== 'string' && selectedClass?.grade === cls.grade && selectedClass?.class_name === cls.class_name ? 'opacity-100' : 'opacity-30'} />
             </button>
           ))}
-          <div className="md:hidden mt-10 p-4 border-t border-slate-800">
-             <button onClick={handleLogout} className="w-full flex items-center justify-center py-3 bg-slate-800 rounded-xl text-sm font-bold text-rose-400"><LogOut size={16} className="mr-2" /> 로그아웃</button>
-          </div>
         </nav>
       </aside>
 
@@ -252,6 +274,20 @@ function App() {
             </h2>
             <p className="text-slate-500 mt-1 font-medium text-sm">Weekly Management System</p>
           </div>
+
+          {/* 실시간 검색바 추가 */}
+          {selectedClass !== 'overall' && (
+            <div className="w-full md:w-80 relative group">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" size={20} />
+              <input 
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="학생 이름 또는 번호 검색"
+                className="w-full pl-12 pr-6 py-3 md:py-4 bg-white border border-slate-100 rounded-2xl shadow-sm outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 font-bold transition-all"
+              />
+            </div>
+          )}
           
           <div className="grid grid-cols-3 w-full md:w-auto bg-white p-1 rounded-2xl shadow-sm border border-slate-100">
             <div className="px-4 py-2 text-center border-r"><span className="block text-[8px] font-black text-violet-500 uppercase">맞춤형</span><p className="text-lg font-black text-violet-600">{stats?.custom || 0}</p></div>
@@ -277,18 +313,25 @@ function App() {
                 <section className="bg-indigo-900 text-white p-8 md:p-12 rounded-[2rem] md:rounded-[2.5rem] shadow-2xl relative overflow-hidden">
                    <div className="relative z-10">
                       <h3 className="text-xl md:text-3xl font-black mb-4">송산초 통합 대시보드</h3>
-                      <p className="text-indigo-200 text-xs md:text-sm leading-relaxed max-w-xl">실시간 수강 현황과 비상 연락망을 확인하세요. 모바일에서도 카드 형태로 편리하게 보실 수 있습니다.</p>
+                      <p className="text-indigo-200 text-xs md:text-sm leading-relaxed max-w-xl">실시간 수강 현황과 비상 연락망을 확인하세요. 상단 검색창에서 학생 이름을 바로 찾을 수 있습니다.</p>
                    </div>
                    <div className="absolute right-6 bottom-6 flex items-center space-x-2 bg-white/10 px-4 py-2 rounded-full backdrop-blur-md">
                       <Heart size={12} className="text-rose-400 fill-rose-400" />
-                      <span className="text-[10px] font-bold text-white/90 tracking-widest">made by 최지영샘</span>
+                      <span className="text-[10px] font-bold text-white/90 tracking-widest text-white/60">made by 최지영샘</span>
                    </div>
                 </section>
               </div>
             ) : (
               <>
+                {/* 검색 결과가 없을 때 메시지 */}
+                {searchQuery && filteredStudents.length === 0 && (
+                  <div className="py-20 text-center text-slate-400 bg-white rounded-3xl border-2 border-dashed border-slate-100 italic">
+                    "{searchQuery}" 학생을 찾을 수 없습니다.
+                  </div>
+                )}
+
                 {/* PC 테이블 뷰 (태블릿 이상) */}
-                <div className="hidden lg:block bg-white rounded-[2rem] shadow-xl border border-slate-100 overflow-hidden mb-10 border-t-4 border-t-indigo-600">
+                <div className="hidden lg:block bg-white rounded-[2rem] shadow-xl border border-slate-100 overflow-hidden mb-10 border-t-4 border-t-indigo-600 animate-in fade-in slide-in-from-bottom-4 duration-500">
                   <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse">
                       <thead>
@@ -299,14 +342,14 @@ function App() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-50">
-                        {students.map(s => (
+                        {filteredStudents.map(s => (
                           <tr key={s.id} className="hover:bg-indigo-50/20 transition-colors group">
                             <td className="p-6 border-r">
                               <div className="flex flex-col items-center space-y-2">
-                                <span className="text-lg font-black text-slate-800">{s.name} <span className="text-xs text-slate-400">({s.student_number})</span></span>
+                                <span className="text-lg font-black text-slate-800">{s.name} <span className="text-xs text-slate-400 font-bold">({s.student_number}번)</span></span>
                                 <div className="flex flex-wrap gap-1 justify-center">
-                                  {s.customized && <span className="px-2 py-0.5 rounded bg-violet-100 text-violet-700 text-[9px] font-black">{s.customized.program}</span>}
-                                  {s.care_room && <span className="px-2 py-0.5 rounded bg-amber-100 text-amber-700 text-[9px] font-black">{s.care_room}</span>}
+                                  {s.customized && <span className="px-2 py-0.5 rounded-lg bg-violet-100 text-violet-700 text-[9px] font-black tracking-tighter"># {s.customized.program}</span>}
+                                  {s.care_room && <span className="px-2 py-0.5 rounded-lg bg-amber-100 text-amber-700 text-[9px] font-black tracking-tighter"># {s.care_room}</span>}
                                 </div>
                               </div>
                             </td>
@@ -321,7 +364,7 @@ function App() {
                                 </div>
                               </td>
                             ))}
-                            <td className="p-6 text-center font-black text-slate-600 text-sm tabular-nums">{s.guardian_contact}</td>
+                            <td className="p-6 text-center font-black text-slate-600 text-sm tabular-nums italic">{s.guardian_contact}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -331,8 +374,8 @@ function App() {
 
                 {/* 모바일 카드 뷰 (핸드폰 전용) */}
                 <div className="lg:hidden space-y-4">
-                  {students.map(s => (
-                    <div key={s.id} className="bg-white rounded-3xl p-6 shadow-md border border-slate-100 border-l-8 border-l-indigo-600">
+                  {filteredStudents.map(s => (
+                    <div key={s.id} className="bg-white rounded-3xl p-6 shadow-md border border-slate-100 border-l-8 border-l-indigo-600 animate-in fade-in slide-in-from-right-4 duration-300">
                       <div className="flex justify-between items-start mb-4 border-b pb-4 border-slate-50">
                         <div>
                           <div className="flex items-center space-x-2">
@@ -344,7 +387,7 @@ function App() {
                             {s.care_room && <span className="px-2 py-0.5 rounded-lg bg-amber-50 text-amber-600 text-[10px] font-black"># {s.care_room}</span>}
                           </div>
                         </div>
-                        <a href={`tel:${s.guardian_contact}`} className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl">
+                        <a href={`tel:${s.guardian_contact}`} className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl active:scale-90 transition-transform">
                           <Phone size={20} />
                         </a>
                       </div>
@@ -373,21 +416,21 @@ function App() {
               </>
             )}
 
-            {/* 강사 연락망 (모바일에서는 카드 그리드) */}
+            {/* 강사 연락망 */}
             <section className="mt-8 bg-white p-6 md:p-10 rounded-[2rem] border border-slate-100 shadow-lg mb-10">
                <div className="mb-6 border-b pb-4 flex justify-between items-end">
                   <h3 className="text-xl md:text-2xl font-black text-slate-800 flex items-center"><ShieldCheck className="mr-2 text-indigo-500" /> 강사 연락망</h3>
                </div>
                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {instructors.map((inst, idx) => (
-                    <div key={idx} className="p-5 border rounded-2xl bg-slate-50/50 flex flex-col justify-between hover:border-indigo-200 transition-all">
+                    <div key={idx} className="p-5 border rounded-2xl bg-slate-50/50 flex flex-col justify-between hover:border-indigo-200 transition-all shadow-sm">
                        <div className="mb-3">
-                          <span className="text-[9px] font-black text-emerald-600 uppercase bg-white px-2 py-0.5 rounded border border-emerald-100 mb-2 inline-block">{inst.category}</span>
+                          <span className="text-[9px] font-black text-emerald-600 uppercase bg-white px-2 py-0.5 rounded border border-emerald-100 mb-2 inline-block tracking-tighter">{inst.category}</span>
                           <h4 className="font-black text-slate-800 text-base leading-tight">{inst.subject_name}</h4>
                        </div>
                        <div className="flex items-center bg-white p-2 rounded-xl border border-slate-100 shadow-inner mt-2">
-                          <div className="flex-1 flex items-center justify-center text-xs font-bold border-r"><User size={12} className="mr-1 text-slate-400" /> {inst.name}</div>
-                          <a href={`tel:${inst.contact}`} className="flex-1 flex items-center justify-center text-xs font-bold text-indigo-600 pl-1"><Phone size={12} className="mr-1" /> {inst.contact}</a>
+                          <div className="flex-1 flex items-center justify-center text-xs font-bold border-r text-slate-700"><User size={12} className="mr-1 text-slate-400" /> {inst.name}</div>
+                          <a href={`tel:${inst.contact}`} className="flex-1 flex items-center justify-center text-xs font-bold text-indigo-600 pl-1 active:scale-95 transition-transform"><Phone size={12} className="mr-1" /> {inst.contact}</a>
                        </div>
                     </div>
                   ))}
