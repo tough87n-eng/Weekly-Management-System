@@ -232,8 +232,19 @@ function App() {
         </button>
       </div>
 
-      {/* 사이드바 */}
-      <aside className={`fixed inset-y-0 left-0 transform ${isMenuOpen ? 'translate-x-0' : '-translate-x-full'} md:relative md:translate-x-0 w-64 bg-slate-900 text-white flex flex-col flex-shrink-0 shadow-2xl transition-transform duration-300 z-40`}>
+      {/* 사이드바 (PC 상시, 모바일 슬라이딩) */}
+      <aside className={`fixed inset-y-0 left-0 transform ${isMenuOpen ? 'translate-x-0' : '-translate-x-full'} md:relative md:translate-x-0 w-72 bg-slate-900 text-white flex flex-col flex-shrink-0 shadow-2xl transition-transform duration-300 z-[100]`}>
+        {/* 모바일 전용 사이드바 헤더 (닫기 버튼 포함) */}
+        <div className="p-6 border-b border-slate-800 flex justify-between items-center md:hidden">
+          <div className="flex items-center space-x-2">
+            <GraduationCap className="text-indigo-400" size={24} />
+            <span className="font-black tracking-tighter">송산초 대시보드</span>
+          </div>
+          <button onClick={() => setIsMenuOpen(false)} className="p-2 bg-slate-800 rounded-xl">
+            <X size={24} />
+          </button>
+        </div>
+
         <div className="p-6 border-b border-slate-800 hidden md:block">
           <h1 className="text-lg font-black tracking-tighter">맞춤형 돌봄 대시보드</h1>
           <div className="flex items-center justify-between mt-4">
