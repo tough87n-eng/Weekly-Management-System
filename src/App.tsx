@@ -91,8 +91,12 @@ function App() {
       setIsLoggedIn(true);
       localStorage.setItem('school_token', token);
       localStorage.setItem('school_role', role);
-    } catch (err) {
-      alert("비밀번호가 올바르지 않습니다.");
+    } catch (err: any) {
+      if (err.response?.status === 401) {
+        alert("비밀번호가 올바르지 않습니다.");
+      } else {
+        alert("서버 연결에 실패했습니다. (Error: " + (err.response?.status || err.message) + ")");
+      }
     }
   };
 

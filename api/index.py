@@ -6,12 +6,12 @@ from fastapi import FastAPI, UploadFile, File, Depends, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from sqlalchemy import Column, String, Integer
-import models
-from database import engine, get_db
+import api.models as models
+from api.database import engine, get_db
 from pydantic import BaseModel
 
 # SchoolConfig를 models.py 구조에 맞춰 직접 정의하거나 Base를 올바르게 참조
-from models import Base
+from api.models import Base
 
 class SchoolConfig(Base):
     __tablename__ = "school_config"
@@ -34,8 +34,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-ADMIN_PASSWORD = "admin1234"
-VIEWER_PASSWORD = "thdtks1234"
+ADMIN_PASSWORD = "1234"
+VIEWER_PASSWORD = "1234"
 
 class LoginRequest(BaseModel):
     password: str
@@ -43,7 +43,11 @@ class LoginRequest(BaseModel):
 class SchoolNameRequest(BaseModel):
     name: str
 
-@app.post("/login")
+@app.get("/api/health")
+async def health():
+    return {"status": "ok", "message": "API is running"}
+
+@app.post("/api/login")
 async def login(req: LoginRequest):
     input_pw = req.password.strip()
     if input_pw == ADMIN_PASSWORD:
@@ -53,12 +57,12 @@ async def login(req: LoginRequest):
     else:
         raise HTTPException(status_code=401, detail="비밀번호 불일치")
 
-@app.get("/school-name")
+@app.get("/api/school-name")
 async def get_school_name(db: Session = Depends(get_db)):
     config = db.query(SchoolConfig).first()
     return {"name": config.school_name if config else "OO"}
 
-@app.post("/school-name")
+@app.post("/api/school-name")
 async def update_school_name(req: SchoolNameRequest, db: Session = Depends(get_db), authorization: str = Header(None)):
     if authorization != "admin-token-secure":
         raise HTTPException(status_code=403, detail="권한 없음")
@@ -79,18 +83,17 @@ def safe_str(val):
     if pd.isna(val) or str(val).lower() == "nan": return ""
     return str(val).strip()
 
-@app.get("/version")
+@app.get("/api/version")
 async def get_version():
-    return {"version": "2.2.4 - Import Fixed"}
+    return {"version": "2.2.5 - Path Fixed"}
 
-@app.post("/upload")
+@app.post("/api/upload")
 async def upload_excel(file: UploadFile = File(...), db: Session = Depends(get_db), authorization: str = Header(None)):
     if authorization != "admin-token-secure":
         raise HTTPException(status_code=403, detail="권한 없음")
     try:
         contents = await file.read()
-        file_path = f"backend/data/{file.filename}"
-        os.makedirs("backend/data", exist_ok=True)
+        file_path = f"/tmp/{file.filename}"
         with open(file_path, "wb") as f:
             f.write(contents)
         xl = pd.ExcelFile(file_path)
@@ -170,16 +173,16 @@ async def upload_excel(file: UploadFile = File(...), db: Session = Depends(get_d
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/stats/overall")
+@app.get("/api/stats/overall")
 async def get_overall_stats(db: Session = Depends(get_db)):
     return {"total": db.query(models.Student).count(), "custom": db.query(models.CustomizedEnrollment).count(), "after": db.query(models.AfterSchoolEnrollment.student_id).distinct().count(), "care": db.query(models.CareRoomEnrollment).count()}
 
-@app.get("/classes")
+@app.get("/api/classes")
 async def get_classes(db: Session = Depends(get_db)):
     classes = db.query(models.Student.grade, models.Student.class_name).distinct().order_by(models.Student.grade, models.Student.class_name).all()
     return [{"grade": g, "class_name": c} for g, c in classes]
 
-@app.get("/dashboard/{grade}/{class_name}")
+@app.get("/api/dashboard/{grade}/{class_name}")
 async def get_dashboard(grade: int, class_name: int, db: Session = Depends(get_db)):
     students = db.query(models.Student).filter(models.Student.grade == grade, models.Student.class_name == class_name).order_by(models.Student.student_number).all()
     result = []
@@ -187,7 +190,7 @@ async def get_dashboard(grade: int, class_name: int, db: Session = Depends(get_d
         result.append({"id": s.id, "name": s.name, "student_number": s.student_number, "guardian_contact": s.guardian_contact, "customized": {"program": s.customized.program_name, "mon": s.customized.mon, "tue": s.customized.tue, "wed": s.customized.wed, "thu": s.customized.thu, "fri": s.customized.fri} if s.customized else None, "after_school": [{"name": a.subject_name, "days": a.days} for a in s.after_school], "care_room": s.care_room.room_name if s.care_room else None})
     return result
 
-@app.get("/instructors")
+@app.get("/api/instructors")
 async def get_instructors(db: Session = Depends(get_db)):
     return db.query(models.Instructor).order_by(models.Instructor.subject_name).all()
 
