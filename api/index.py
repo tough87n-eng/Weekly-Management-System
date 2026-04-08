@@ -4,7 +4,7 @@ import logging
 import re
 from fastapi import FastAPI, UploadFile, File, Depends, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import Column, String, Integer
 
 try:
@@ -138,7 +138,7 @@ async def upload_excel(file: UploadFile = File(...), db: Session = Depends(get_d
                         db.add(models.CustomizedEnrollment(student_id=sid, program_name=safe_str(row.iloc[3]), mon=safe_str(row.iloc[4]), tue=safe_str(row.iloc[5]), wed=safe_str(row.iloc[6]), thu=safe_str(row.iloc[7]), fri=safe_str(row.iloc[8])))
                 except: continue
 
-        # 4. 돌봄교실 시트 처리 (복구됨!)
+        # 4. 돌봄교실 시트 처리
         r_sheet = [s for s in xl.sheet_names if "돌봄" in s]
         if r_sheet:
             r_df = pd.read_excel(xl, sheet_name=r_sheet[0])
@@ -160,6 +160,7 @@ async def upload_excel(file: UploadFile = File(...), db: Session = Depends(get_d
 
 @app.get("/api/stats/overall")
 async def get_overall_stats(db: Session = Depends(get_db)):
+    # 쿼리 수 최소화
     return {
         "total": db.query(models.Student).count(),
         "custom": db.query(models.CustomizedEnrollment).count(),
@@ -174,7 +175,13 @@ async def get_classes(db: Session = Depends(get_db)):
 
 @app.get("/api/dashboard/{grade}/{class_name}")
 async def get_dashboard(grade: int, class_name: int, db: Session = Depends(get_db)):
-    students = db.query(models.Student).filter(models.Student.grade == grade, models.Student.class_name == class_name).order_by(models.Student.student_number).all()
+    # 최적화 핵심: joinedload를 사용하여 관계된 데이터를 한 번의 쿼리로 가져옴
+    students = db.query(models.Student).options(
+        joinedload(models.Student.customized),
+        joinedload(models.Student.after_school),
+        joinedload(models.Student.care_room)
+    ).filter(models.Student.grade == grade, models.Student.class_name == class_name).order_by(models.Student.student_number).all()
+    
     res = []
     for s in students:
         res.append({
@@ -191,4 +198,4 @@ async def get_instructors(db: Session = Depends(get_db)):
 
 @app.get("/api/version")
 async def get_version():
-    return {"version": "2.2.7 - CareRoom Fixed"}
+    return {"version": "2.2.8 - Performance Optimized"}
